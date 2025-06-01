@@ -11,7 +11,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // Gerekli API'leri kontrol et
-const requiredApis = ['scripting', 'cookies', 'tabs'];
+const requiredApis = ['scripting', 'tabs'];
 const missingApis = requiredApis.filter(api => !chrome[api]);
 
 if (missingApis.length > 0) {
@@ -187,27 +187,27 @@ async function processDetailPage(url, title, tabId, carId) {
       target: { tabId },
       func: (id) => {
         // Reklam olmayan gerçek ilan linkini bul
-        const item = document.querySelector(`tr[data-id="${id}"]:not(.GoogleActiveViewElement) a.classifiedTitle`);
+        const item = document.querySelector(`tr[data-id="${id}"]:not(.classicNativeAd) a.classifiedTitle`);
         
         // Eğer element reklam değilse ve bulunduysa tıkla
-        if (item && !item.closest('.GoogleActiveViewElement')) {
+        if (item) {
           item.click();
           return true;
         }
         
-        console.log('Element reklam olduğu için atlandı veya bulunamadı');
+        console.log('Tıklanamadı Element:', item);
         return false;
       },
       args: [carId]
     });
 
     if (!clickResult || !clickResult[0] || !clickResult[0].result) {
-      console.error('İlana tıklanamadı veya reklam elementi!');
+      console.error('İlana tıklanamadı Element:', clickResult);
       return null;
     }
     
     // Sayfa yüklenme beklemesi
-    await sleep(1000, 1500);
+    await sleep(1800, 2500);
     
     // Detay sayfasında scroll
     await simulateDetailPageScrolling(tabId);
@@ -497,14 +497,10 @@ async function startAnalysis(tabId) {
     // İlk sayfayı analiz et
     const tab = await chrome.tabs.get(tabId);
     let pageContent = await getPageContent(tab);
-    
-    // Sayfa limitini kontrol et
-    const maxPages = userPageLimit > 0 ? Math.min(userPageLimit, pageContent.totalPages) : pageContent.totalPages;
+    currentPage = pageContent.currentPage;
     totalPages = pageContent.totalPages; // Toplam mevcut sayfa sayısı
     
-    console.log(`Toplam sayfa: ${pageContent.totalPages}, İşlenecek sayfa: ${maxPages}`);
-    
-    while (currentPage <= maxPages && isAnalysisRunning) {
+    while (currentPage <= totalPages && isAnalysisRunning) {
       // Sayfadaki araçları analiz et
       for (const car of pageContent.cars) {
         if (!isAnalysisRunning) break;
@@ -551,7 +547,6 @@ async function startAnalysis(tabId) {
       
       // Sonraki sayfaya geç
       if (currentPage < totalPages && isAnalysisRunning) {
-        currentPage++;
         
         // Sonraki sayfa butonuna tıkla
         await chrome.scripting.executeScript({
@@ -567,10 +562,12 @@ async function startAnalysis(tabId) {
         });
         
         // Sayfa yüklenme beklemesi
-        await sleep(1000, 1500);
+        await sleep(2000, 3000);
         
         // Yeni sayfayı analiz et
         pageContent = await getPageContent(tab);
+        currentPage = pageContent.currentPage;
+        totalPages = pageContent.totalPages;
       }
     }
     
@@ -604,7 +601,8 @@ async function getPageContent(tab) {
   
   const content = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    func: () => {
+    func: (userPageLimit) => {
+      console.log(userPageLimit)
       console.log('Sayfa içeriği analizi başladı');
       
       // Ana tablo kontrolü
@@ -618,17 +616,17 @@ async function getPageContent(tab) {
       // Toplam sayfa sayısını al
       const pageInfo = document.querySelector('.pageNavigator .mbdef')?.textContent || '';
       const totalPagesMatch = pageInfo.match(/Toplam (\d+) sayfa/);
-      const totalPages = totalPagesMatch ? parseInt(totalPagesMatch[1]) : 1;
+      let totalPages = totalPagesMatch ? parseInt(totalPagesMatch[1]) : 1;
       console.log('Toplam sayfa sayısı:', totalPages);
       
       // İlanları bul - reklam elementlerini atla
-      const listings = Array.from(document.querySelectorAll('tr.searchResultsItem:not(.GoogleActiveViewElement)'));
+      const listings = Array.from(document.querySelectorAll('tr.searchResultsItem:not(.classicNativeAd)'));
       console.log('Bulunan ilan sayısı:', listings.length);
       
       const cars = listings.map(tr => {
         try {
           // Reklam kontrolü
-          if (tr.closest('.GoogleActiveViewElement')) {
+          if (tr.closest('.classicNativeAd')) {
             console.log('Reklam elementi atlandı');
             return null;
           }
@@ -680,13 +678,17 @@ async function getPageContent(tab) {
       }).filter(Boolean); // null değerleri filtrele
 
       console.log('Toplanan tüm araçlar:', cars);
+
+      totalPages = userPageLimit > 0 ? Math.min(userPageLimit, totalPages) : totalPages;
       return {
         cars,
         totalPages,
         currentPage: parseInt(document.querySelector('#currentPageValue')?.value || '1')
       };
-    }
+    },
+    args: [userPageLimit],
   });
+
 
   if (!content || !content[0] || !content[0].result) {
     console.error('Sayfa içeriği alınamadı!');
@@ -724,7 +726,7 @@ function calculateScores(car) {
     // Her yıl için +4 puan bonus (max 35 puan)
     const yearBonus = Math.min(35, Math.max(0, (year - 2015) * 4));
     scores.value += yearBonus;
-    console.log('Yıl bonusu:', yearBonus);
+    // console.log('Yıl bonusu:', yearBonus);
     
     // KM bazlı bonus puanlar (düşük km daha yüksek puan)
     let kmBonus = 0;
@@ -736,7 +738,7 @@ function calculateScores(car) {
     else if (km <= 150000) kmBonus = 5;
     
     scores.value += kmBonus;
-    console.log('KM bonusu:', kmBonus);
+    //console.log('KM bonusu:', kmBonus);
     
     // Fiyat bazlı bonus (düşük fiyat daha yüksek puan)
     // Ortalama piyasa değeri hesabı
@@ -755,7 +757,7 @@ function calculateScores(car) {
     else if (price < expectedPrice * 1.2) priceBonus = 5; // Yüksek fiyat
     
     scores.value += priceBonus;
-    console.log('Fiyat bonusu:', priceBonus);
+    //console.log('Fiyat bonusu:', priceBonus);
     
     // Value puanını 100'e normalize et
     scores.value = Math.min(100, scores.value);
@@ -879,9 +881,9 @@ function calculateScores(car) {
         }
 
         scores.condition += tramerBonus;
-        console.log('Tramer bilgisi mevcut, bonus:', tramerBonus);
+        //console.log('Tramer bilgisi mevcut, bonus:', tramerBonus);
       } else {
-        console.log('Tramer bilgisi bulunamadı, bonus uygulanmadı');
+        //console.log('Tramer bilgisi bulunamadı, bonus uygulanmadı');
       }
 
       // Tramer kaydı analizi
@@ -966,7 +968,7 @@ function calculateScores(car) {
       scores.seller * 0.05        // Satıcı: %5 (azaltıldı)
     );
 
-    console.log('Hesaplanan puanlar:', scores);
+    //console.log('Hesaplanan puanlar:', scores);
     return scores;
   } catch (error) {
     console.error('Puan hesaplama hatası:', error);

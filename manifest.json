@@ -6,8 +6,7 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "tabs",
-    "cookies"
+    "tabs"
   ],
   "optional_permissions": [
     "storage"

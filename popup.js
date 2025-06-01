@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     // API'lerin yüklendiğinden emin ol
-    const requiredApis = ['scripting', 'cookies', 'tabs'];
+    const requiredApis = ['scripting', 'tabs'];
     const missingApis = requiredApis.filter(api => !chrome[api]);
 
     if (missingApis.length > 0) {
@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Background'dan gelen mesajları dinle
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      console.log('Mesaj alındı:', message);
+      //console.log('Mesaj alındı:', message);
       
       if (message.action === 'updateProgress') {
         progressCount.textContent = message.data.totalProcessed;
@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Eğer analyzedCars varsa ve sayısı 0'dan büyükse, ara sonuçları göster
         if (message.data.analyzedCars && message.data.analyzedCars.length > 0) {
-          console.log('Ara sonuçlar güncelleniyor:', message.data.analyzedCars);
+          //console.log('Ara sonuçlar güncelleniyor:', message.data.analyzedCars);
           displayResults(message.data.analyzedCars);
         }
       }
@@ -202,45 +202,6 @@ async function sleep(min, max) {
   const delay = Math.floor(Math.random() * (max - min + 1)) + min;
   console.log(`Bekleme süresi: ${delay}ms (${delay/1000} saniye)`);
   await new Promise(resolve => setTimeout(resolve, delay));
-}
-
-// Cookie temizleme fonksiyonu
-async function clearCookies(tabId) {
-  try {
-    // Tab URL'ini al
-    const tab = await chrome.tabs.get(tabId);
-    const url = new URL(tab.url);
-    
-    console.log(`Cookie'ler temizleniyor... (Tab ID: ${tabId}, Domain: ${url.hostname})`);
-    
-    // Tüm cookie'leri al
-    const cookies = await chrome.cookies.getAll({
-      domain: url.hostname
-    });
-    
-    console.log(`${cookies.length} cookie bulundu`);
-    
-    // Her cookie'yi tek tek sil
-    for (const cookie of cookies) {
-      const protocol = url.protocol.includes('https') ? 'https:' : 'http:';
-      const cookieUrl = `${protocol}//${cookie.domain}${cookie.path}`;
-      
-      await chrome.cookies.remove({
-        url: cookieUrl,
-        name: cookie.name
-      });
-      
-      console.log(`Cookie silindi: ${cookie.name}`);
-    }
-    
-    console.log('Tüm cookie\'ler başarıyla temizlendi');
-    
-    // Rastgele bekleme (1-3 saniye)
-    await sleep(1000, 3000);
-    
-  } catch (error) {
-    console.log('Cookie temizleme hatası:', error);
-  }
 }
 
 async function processDetailPage(url, title) {
