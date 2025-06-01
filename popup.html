@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 800px;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+    button {
+      padding: 10px 20px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    button.running {
+      background: #f44336;
+    }
+    button.running:hover {
+      background: #da190b;
+    }
+    .search-link {
+      color: #2196F3;
+      cursor: pointer;
+      padding: 5px;
+      border-radius: 4px;
+    }
+    .search-link:hover {
+      background: #e3f2fd;
+    }
+    #pageLimitContainer {
+      margin: 10px 0;
+    }
+    #pageLimit {
+      width: 60px;
+      padding: 5px;
+      margin-left: 10px;
+    }
+    #startAnalysis {
+      padding: 10px 20px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #startAnalysis:hover {
+      background: #45a049;
+    }
+    #startAnalysis.running {
+      background: #f44336;
+    }
+    #startAnalysis.running:hover {
+      background: #da190b;
+    }
+    #progress {
+      margin: 20px 0;
+      display: none;
+    }
+    .car-item {
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    .best-car {
+      border-color: #4CAF50;
+      background: #f1f8e9;
+    }
+    .page-info {
+      display: inline-block;
+      margin-left: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Sahibinden.com İlan Analizi</h2>
+  
+  <div id="pageLimitContainer">
+    <label for="pageLimit">Sayfa Limiti (0: Limitsiz):</label>
+    <input type="number" id="pageLimit" min="0" value="0">
+  </div>
+
+  <button id="startAnalysis">Analizi Başlat</button>
+
+  <div id="progress" style="display: none; margin-top: 20px;">
+    <p>
+      Analiz edilen araç sayısı: <span id="progressCount">0</span><br>
+      Sayfa: <span id="currentPage">1</span> / <span class="page-info" id="totalPages">1</span>
+    </p>
+  </div>
+
+  <div id="results"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html> 

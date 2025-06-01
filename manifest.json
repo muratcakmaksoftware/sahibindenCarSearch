@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Sahibinden Araç Analizi",
+  "version": "1.0",
+  "description": "Sahibinden.com araç ilanlarını analiz eder",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs",
+    "cookies"
+  ],
+  "optional_permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.sahibinden.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+} 
