@@ -34,13 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         progressCount.textContent = response.totalProcessed;
         
         // Sayfa gösterimini düzenli formatta güncelle
-        let pageDisplay = '';
-        if (response.userPageLimit > 0) {
-          const maxPages = Math.min(response.userPageLimit, response.totalPages);
-          pageDisplay = `${response.currentPage} / ${maxPages} (Toplam: ${response.totalPages})`;
-        } else {
-          pageDisplay = `${response.currentPage} / ${response.totalPages}`;
-        }
+        pageDisplay = `${response.currentPage} / ${response.totalPages}`;
         
         currentPage.textContent = response.currentPage;
         totalPages.textContent = pageDisplay.replace(response.currentPage + ' / ', '');

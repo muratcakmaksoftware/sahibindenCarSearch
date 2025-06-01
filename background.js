@@ -187,7 +187,8 @@ async function processDetailPage(url, title, tabId, carId) {
       target: { tabId },
       func: (id) => {
         // Reklam olmayan gerçek ilan linkini bul
-        const item = document.querySelector(`tr[data-id="${id}"]:not(.classicNativeAd) a.classifiedTitle`);
+        //const item = document.querySelector(`tr[data-id="${id}"]:not(.classicNativeAd) a.classifiedTitle`);
+        const item = document.querySelector(`tr[data-id="${id}"].searchResultsItem:not(.nativeAd):not(.classicNativeAd) a.classifiedTitle`);
         
         // Eğer element reklam değilse ve bulunduysa tıkla
         if (item) {
@@ -207,7 +208,7 @@ async function processDetailPage(url, title, tabId, carId) {
     }
     
     // Sayfa yüklenme beklemesi
-    await sleep(1800, 2500);
+    await sleep(2000, 2800);
     
     // Detay sayfasında scroll
     await simulateDetailPageScrolling(tabId);
@@ -461,7 +462,7 @@ async function processDetailPage(url, title, tabId, carId) {
     });
     
     // Sayfa yüklenme beklemesi
-    await sleep(1000, 1500);
+    await sleep(2000, 2200);
     
     if (!details || !details[0] || !details[0].result) {
       console.error('Detay bilgileri alınamadı!');
@@ -481,7 +482,7 @@ async function processDetailPage(url, title, tabId, carId) {
       }
     });
     
-    await sleep(1000, 1500);
+    await sleep(2000, 2200);
     return null;
   }
 }
@@ -549,25 +550,34 @@ async function startAnalysis(tabId) {
       if (currentPage < totalPages && isAnalysisRunning) {
         
         // Sonraki sayfa butonuna tıkla
-        await chrome.scripting.executeScript({
+        const nextPageResult = await chrome.scripting.executeScript({
           target: { tabId },
           func: () => {
             const nextButton = document.querySelector('.prevNextBut[title="Sonraki"]');
             if (nextButton) {
               nextButton.click();
-              return true;
+              return { success: true };
             }
-            return false;
+            return { success: false };
           }
         });
+
+        // Sonraki sayfa butonuna tıklama kontrolü
+        if (!nextPageResult[0].result.success) {
+          console.log('Sonraki sayfa butonu bulunamadı veya tıklanamadı. Analiz sonlandırılıyor...');
+          isAnalysisRunning = false;
+          break;
+        }
         
         // Sayfa yüklenme beklemesi
-        await sleep(2000, 3000);
+        await sleep(3000, 4000);
         
         // Yeni sayfayı analiz et
         pageContent = await getPageContent(tab);
         currentPage = pageContent.currentPage;
         totalPages = pageContent.totalPages;
+      } else {
+        break;
       }
     }
     
