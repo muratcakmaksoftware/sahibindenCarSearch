@@ -207,10 +207,10 @@ async function processDetailPage(url, title, tabId, carId) {
     }
     
     // Sayfa yüklenme beklemesi
-    await sleep(2000, 2800);
+    await sleep(1500, 2000);
     
     // Detay sayfasında scroll
-    await simulateDetailPageScrolling(tabId);
+    //await simulateDetailPageScrolling(tabId);
     
     // Detayları topla
     const details = await chrome.scripting.executeScript({
@@ -484,7 +484,7 @@ async function processDetailPage(url, title, tabId, carId) {
     });
     
     // Sayfa yüklenme beklemesi
-    await sleep(2000, 2200);
+    await sleep(1500, 2000);
     
     if (!details || !details[0] || !details[0].result) {
       console.error('Detay bilgileri alınamadı!');
@@ -504,7 +504,7 @@ async function processDetailPage(url, title, tabId, carId) {
       }
     });
     
-    await sleep(2000, 2200);
+    await sleep(1500, 2000);
     return null;
   }
 }
@@ -806,13 +806,45 @@ async function showHTMLReport(analyzedCars, searchFilters) {
           font-size: 0.8em;
         }
         .sort-select {
-          margin: 10px 0;
-          padding: 8px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
+          margin: 15px 0;
+          padding: 10px;
+          border: 2px solid #4CAF50;
+          border-radius: 8px;
           background-color: white;
-          font-size: 14px;
+          font-size: 15px;
           color: #333;
+          width: auto;
+          min-width: 250px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .sort-select:hover {
+          border-color: #45a049;
+          box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .sort-select:focus {
+          outline: none;
+          border-color: #45a049;
+          box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+        }
+        
+        .sort-select optgroup {
+          font-weight: bold;
+          color: #4CAF50;
+          padding: 8px 0;
+        }
+        
+        .sort-select option {
+          padding: 8px;
+          color: #333;
+          font-weight: normal;
+        }
+        
+        .sort-select option:hover {
+          background-color: #f5f5f5;
         }
         
         .rank {
@@ -969,6 +1001,7 @@ async function showHTMLReport(analyzedCars, searchFilters) {
           padding: 8px;
           border-bottom: 1px solid #eee;
           font-size: 0.9em;
+          margin-bottom: 5px;
         }
         
         .equipment-list li:last-child {
@@ -1017,6 +1050,51 @@ async function showHTMLReport(analyzedCars, searchFilters) {
         }
       </style>
       <script>
+        // Sayfa yüklendiğinde varsayılan sıralama
+        window.onload = function() {
+          sortTable('overall_desc');
+        };
+
+        // Sıralama fonksiyonu
+        function sortTable(criterion) {
+          try {
+            var parts = criterion.split('_');
+            var field = parts[0];
+            var direction = parts[1];
+            
+            var table = document.getElementById('carAnalysisTable');
+            if (!table) return;
+            
+            var tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            
+            var rows = Array.from(tbody.getElementsByTagName('tr'));
+            
+            rows.sort(function(a, b) {
+              // Data attribute'larını doğrudan al
+              var aValue = parseFloat(a.getAttribute('data-' + field)) || 0;
+              var bValue = parseFloat(b.getAttribute('data-' + field)) || 0;
+              
+              // Sıralama yönüne göre karşılaştır
+              return direction === 'asc' ? aValue - bValue : bValue - aValue;
+            });
+            
+            // DOM'u güncelle
+            tbody.innerHTML = '';
+            rows.forEach(function(row, index) {
+              // Sıra numarasını güncelle
+              var rankCell = row.querySelector('.rank');
+              if (rankCell) {
+                rankCell.textContent = (index + 1).toString();
+              }
+              tbody.appendChild(row);
+            });
+            
+          } catch(err) {
+            console.error('Sıralama hatası:', err);
+          }
+        }
+
         function showEquipmentModal(carId) {
           const modal = document.getElementById('equipmentModal');
           const content = document.getElementById('modalContent');
@@ -1082,15 +1160,44 @@ async function showHTMLReport(analyzedCars, searchFilters) {
         </div>
 
         <select class="sort-select" onchange="sortTable(this.value)">
-          <option value="overall">Genel Puana Göre Sırala</option>
-          <option value="value">Fiyat/Değer Puanına Göre Sırala</option>
-          <option value="condition">Durum Puanına Göre Sırala</option>
-          <option value="price">Fiyata Göre Sırala (Düşükten Yükseğe)</option>
-          <option value="year">Yıla Göre Sırala (Yeniden Eskiye)</option>
-          <option value="km">Kilometreye Göre Sırala (Düşükten Yükseğe)</option>
+          <optgroup label="📊 Genel Değerlendirme">
+            <option value="overall_desc">🏆 Genel Puan (En İyiden En Düşüğe)</option>
+            <option value="value_desc">💰 Fiyat/Değer Puanı (En İyiden En Düşüğe)</option>
+            <option value="condition_desc">🚗 Durum Puanı (En İyiden En Düşüğe)</option>
+          </optgroup>
+          
+          <optgroup label="🎯 Genel Puan">
+            <option value="overall_desc">Yüksekten Düşüğe</option>
+            <option value="overall_asc">Düşükten Yükseğe</option>
+          </optgroup>
+          
+          <optgroup label="💰 Fiyat/Değer Puanı">
+            <option value="value_desc">Yüksekten Düşüğe</option>
+            <option value="value_asc">Düşükten Yükseğe</option>
+          </optgroup>
+          
+          <optgroup label="🚗 Durum Puanı">
+            <option value="condition_desc">Yüksekten Düşüğe</option>
+            <option value="condition_asc">Düşükten Yükseğe</option>
+          </optgroup>
+          
+          <optgroup label="💵 Fiyat">
+            <option value="price_desc">Yüksekten Düşüğe</option>
+            <option value="price_asc">Düşükten Yükseğe</option>
+          </optgroup>
+          
+          <optgroup label="📅 Yıl">
+            <option value="year_desc">Yeniden Eskiye</option>
+            <option value="year_asc">Eskiden Yeniye</option>
+          </optgroup>
+          
+          <optgroup label="🛣️ Kilometre">
+            <option value="km_desc">Yüksekten Düşüğe</option>
+            <option value="km_asc">Düşükten Yükseğe</option>
+          </optgroup>
         </select>
 
-        <table>
+        <table id="carAnalysisTable">
           <thead>
             <tr>
               <th>Sıra</th>
@@ -1136,21 +1243,28 @@ async function showHTMLReport(analyzedCars, searchFilters) {
                 multimedia: car.equipment.multimedia
               } : null;
 
+              // Sayısal değerleri parse et
               const price = parseInt(car.price?.replace(/[^0-9]/g, '')) || 0;
               const km = parseInt(car.km?.replace(/[^0-9]/g, '')) || 0;
               const year = parseInt(car.year) || 0;
 
               return `
-                <tr>
-                  <td><span class="rank">${index + 1}</span></td>
-                  <td>${car.brand} ${car.series} ${car.model}</td>
-                  <td data-year="${year}" data-km="${km}">${car.year} / ${parseInt(car.km).toLocaleString()} km</td>
-                  <td data-price="${price}">${car.price}</td>
-                  <td data-overall="${car.scores.overall}" class="score ${getScoreClass(car.scores.overall)}">${car.scores.overall}</td>
-                  <td data-value="${car.scores.value}" class="score ${getScoreClass(car.scores.value)}">${car.scores.value}</td>
-                  <td data-condition="${car.scores.condition}" class="score ${getScoreClass(car.scores.condition)}">${car.scores.condition}</td>
-                  <td class="score ${getScoreClass(car.scores.technical)}">${car.scores.technical}</td>
-                  <td class="score ${getScoreClass(car.scores.equipment)}">
+                 <tr 
+                     data-overall="${car.scores.overall || 0}" 
+                     data-value="${car.scores.value || 0}" 
+                     data-condition="${car.scores.condition || 0}"
+                     data-price="${price}"
+                     data-year="${year}"
+                     data-km="${km}">
+                    <td><span class="rank">${index + 1}</span></td>
+                    <td>${car.brand} ${car.series} ${car.model}</td>
+                    <td>${car.year} / ${parseInt(car.km).toLocaleString()} km</td>
+                    <td>${car.price}</td>
+                    <td class="score ${getScoreClass(car.scores.overall)}">${car.scores.overall}</td>
+                    <td class="score ${getScoreClass(car.scores.value)}">${car.scores.value}</td>
+                    <td class="score ${getScoreClass(car.scores.condition)}">${car.scores.condition}</td>
+                    <td class="score ${getScoreClass(car.scores.technical)}">${car.scores.technical}</td>
+                    <td class="score ${getScoreClass(car.scores.equipment)}">
                     ${equipmentData ? `
                       <input type="hidden" id="equipmentData_${index}" value='${JSON.stringify(equipmentData)}'>
                       <span class="equipment-trigger" onclick="showEquipmentModal(${index})">${car.scores.equipment}</span>
@@ -1211,7 +1325,7 @@ async function startAnalysis(tabId) {
         console.log(`[${new Date().toLocaleTimeString()}] 🚗 Araç analiz ediliyor: ${car.title}`);
         
         // Scroll simülasyonu
-        await simulateScrolling(tabId, car.id);
+        //await simulateScrolling(tabId, car.id);
         
         // Detay sayfasını işle
         const details = await processDetailPage(car.url, car.title, tabId, car.id);
