@@ -509,57 +509,114 @@ async function processDetailPage(url, title, tabId, carId) {
   }
 }
 
-// Filtre bilgilerini URL'den çıkar
-function parseSearchFilters(url) {
-  try {
-    const urlObj = new URL(url);
-    const params = new URLSearchParams(urlObj.search);
-    const pagePath = urlObj.pathname.split('/');
-    
-    const filters = {
-      brand: null,
-      model: null,
-      minYear: params.get('a5_min') || null,
-      maxYear: params.get('a5_max') || null,
-      minKm: params.get('a4_min') ? parseInt(params.get('a4_min')).toLocaleString() : null,
-      maxKm: params.get('a4_max') ? parseInt(params.get('a4_max')).toLocaleString() : null,
-      minPrice: params.get('price_min') ? parseInt(params.get('price_min')).toLocaleString() + ' TL' : null,
-      maxPrice: params.get('price_max') ? parseInt(params.get('price_max')).toLocaleString() + ' TL' : null,
-      gear: params.get('a6') ? (params.get('a6') === '1' ? 'Manuel' : 'Otomatik') : null,
-      fuel: params.get('a7') ? getFuelType(params.get('a7')) : null,
-      location: params.get('address_city') || null
-    };
+// Filtre bilgilerini HTML'den çıkar
+function parseFiltersFromHTML() {
+  const filters = {
+    location: '',
+    price: '',
+    year: '',
+    gear: '',
+    km: '',
+    fuelType: '',
+    bodyType: [],
+    color: [],
+    enginePower: [],
+    engineSize: [],
+    transmission: [],
+    heavyDamage: '',
+    fromWho: '',
+    exchangeable: '',
+    listingDate: '',
+    licensePlate: [],
+    hasVideo: false,
+    hasClip: false,
+    noPaint: false,
+    noChange: false
+  };
 
-    // URL path'inden marka/model bilgisini çıkar
-    if (pagePath.length > 2) {
-      const modelPath = pagePath[pagePath.length - 1];
-      if (modelPath !== 'otomobil') {
-        filters.model = decodeURIComponent(modelPath).replace(/-/g, ' ');
-      }
-      const brandPath = pagePath[pagePath.length - 2];
-      if (brandPath !== 'otomobil') {
-        filters.brand = decodeURIComponent(brandPath).replace(/-/g, ' ');
-      }
+  try {
+    const filterList = document.querySelector('#currentFilters');
+    if (!filterList) {
+      console.log('Filtre listesi bulunamadı');
+      return filters;
     }
 
+    console.log('Filtreler ayrıştırılıyor...');
+    filterList.querySelectorAll('li').forEach(li => {
+      const titleElement = li.querySelector('strong span');
+      if (!titleElement) return;
+
+      const title = titleElement.textContent.trim();
+      const values = Array.from(li.querySelectorAll('a')).map(a => a.getAttribute('title')?.trim()).filter(Boolean);
+      
+      console.log(`Filtre: ${title}`, values);
+
+      switch (title) {
+        case 'Adres':
+          filters.location = values[0] || '';
+          break;
+        case 'Fiyat (TL)':
+          filters.price = values[0] || '';
+          break;
+        case 'Yıl':
+          filters.year = values[0] || '';
+          break;
+        case 'Vites':
+          filters.gear = values[0] || '';
+          break;
+        case 'KM':
+          filters.km = values[0] || '';
+          break;
+        case 'Yakıt Tipi':
+          filters.fuelType = values.join(', ');
+          break;
+        case 'Kasa Tipi':
+          filters.bodyType = values;
+          break;
+        case 'Renk':
+          filters.color = values;
+          break;
+        case 'Motor Gücü':
+          filters.enginePower = values;
+          break;
+        case 'Motor Hacmi':
+          filters.engineSize = values;
+          break;
+        case 'Çekiş':
+          filters.transmission = values;
+          break;
+        case 'Ağır Hasar Kayıtlı':
+          filters.heavyDamage = values[0] || '';
+          break;
+        case 'Kimden':
+          filters.fromWho = values[0] || '';
+          break;
+        case 'Takaslı':
+          filters.exchangeable = values[0] || '';
+          break;
+        case 'İlan Tarihi':
+          filters.listingDate = values[0] || '';
+          break;
+        case 'Fotoğraf, Video':
+          filters.hasVideo = values.includes('Videolu ilanlar');
+          filters.hasClip = values.includes('Klipli ilanlar');
+          break;
+        case 'Boya, Değişen Parça':
+          filters.noPaint = values.includes('Boyasız');
+          filters.noChange = values.includes('Değişensiz');
+          break;
+        case 'Plaka / Uyruk':
+          filters.licensePlate = values;
+          break;
+      }
+    });
+
+    console.log('Toplanan filtre bilgileri:', filters);
     return filters;
   } catch (error) {
-    console.error('Filtre çıkarma hatası:', error);
-    return null;
+    console.error('HTML filtre çıkarma hatası:', error);
+    return filters;
   }
-}
-
-// Yakıt tipi kodunu açıklamaya çevir
-function getFuelType(code) {
-  const fuelTypes = {
-    '1': 'Benzin',
-    '2': 'Dizel',
-    '3': 'LPG',
-    '4': 'Hibrit',
-    '5': 'Elektrik',
-    '6': 'Benzin & LPG'
-  };
-  return fuelTypes[code] || null;
 }
 
 // Filtre özetini oluştur
@@ -592,7 +649,37 @@ async function showHTMLReport(analyzedCars, searchFilters) {
   // Araçları puana göre sırala
   const sortedCars = [...analyzedCars].sort((a, b) => b.scores.overall - a.scores.overall);
 
-  // HTML şablonu oluştur
+  // Filtre özeti oluştur
+  let filterSummaryHTML = '';
+  if (searchFilters) {
+    const filterRows = [];
+    if (searchFilters.location) filterRows.push(`<tr><td>Konum:</td><td>${searchFilters.location}</td></tr>`);
+    if (searchFilters.price) filterRows.push(`<tr><td>Fiyat:</td><td>${searchFilters.price}</td></tr>`);
+    if (searchFilters.year) filterRows.push(`<tr><td>Yıl:</td><td>${searchFilters.year}</td></tr>`);
+    if (searchFilters.km) filterRows.push(`<tr><td>KM:</td><td>${searchFilters.km}</td></tr>`);
+    if (searchFilters.gear) filterRows.push(`<tr><td>Vites:</td><td>${searchFilters.gear}</td></tr>`);
+    if (searchFilters.fuelType) filterRows.push(`<tr><td>Yakıt:</td><td>${searchFilters.fuelType}</td></tr>`);
+    if (searchFilters.bodyType.length) filterRows.push(`<tr><td>Kasa:</td><td>${searchFilters.bodyType.join(', ')}</td></tr>`);
+    if (searchFilters.color.length) filterRows.push(`<tr><td>Renk:</td><td>${searchFilters.color.join(', ')}</td></tr>`);
+    if (searchFilters.enginePower.length) filterRows.push(`<tr><td>Motor Gücü:</td><td>${searchFilters.enginePower.join(', ')}</td></tr>`);
+    if (searchFilters.engineSize.length) filterRows.push(`<tr><td>Motor Hacmi:</td><td>${searchFilters.engineSize.join(', ')}</td></tr>`);
+    if (searchFilters.transmission.length) filterRows.push(`<tr><td>Çekiş:</td><td>${searchFilters.transmission.join(', ')}</td></tr>`);
+    if (searchFilters.licensePlate.length) filterRows.push(`<tr><td>Plaka / Uyruk:</td><td>${searchFilters.licensePlate.join(', ')}</td></tr>`);
+    if (searchFilters.heavyDamage) filterRows.push(`<tr><td>Ağır Hasar:</td><td>${searchFilters.heavyDamage}</td></tr>`);
+    if (searchFilters.fromWho) filterRows.push(`<tr><td>Kimden:</td><td>${searchFilters.fromWho}</td></tr>`);
+    if (searchFilters.exchangeable) filterRows.push(`<tr><td>Takaslı:</td><td>${searchFilters.exchangeable}</td></tr>`);
+    if (searchFilters.listingDate) filterRows.push(`<tr><td>İlan Tarihi:</td><td>${searchFilters.listingDate}</td></tr>`);
+    
+    filterSummaryHTML = `
+      <div class="filter-summary">
+        <h3>Filtre Bilgileri</h3>
+        <table class="filter-table">
+          ${filterRows.join('')}
+        </table>
+      </div>
+    `;
+  }
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -916,6 +1003,18 @@ async function showHTMLReport(analyzedCars, searchFilters) {
             padding: 6px;
           }
         }
+        .filter-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .filter-table td {
+          padding: 8px;
+          border-bottom: 1px solid #ddd;
+        }
+        .filter-table td:first-child {
+          font-weight: bold;
+          width: 150px;
+        }
       </style>
       <script>
         function showEquipmentModal(carId) {
@@ -973,16 +1072,10 @@ async function showHTMLReport(analyzedCars, searchFilters) {
       </script>
     </head>
     <body>
+      ${filterSummaryHTML}
       <div class="container">
         <h1>Araç Analiz Raporu</h1>
         
-        <div class="filter-summary">
-          <h2>Arama Filtreleri</h2>
-          <ul>
-            ${createFilterSummary(searchFilters).map(filter => `<li>${filter}</li>`).join('')}
-          </ul>
-        </div>
-
         <div class="stats">
           <p>Toplam İncelenen İlan: ${analyzedCars.length}</p>
           <p>Ortalama Genel Puan: ${Math.round(analyzedCars.reduce((acc, car) => acc + car.scores.overall, 0) / analyzedCars.length)}</p>
@@ -1098,9 +1191,12 @@ async function startAnalysis(tabId) {
     totalProcessed = 0;
     currentPage = 1;
     
-    // URL'den filtre bilgilerini al
+    // HTML'den filtre bilgilerini al
     const tab = await chrome.tabs.get(tabId);
-    const searchFilters = parseSearchFilters(tab.url);
+    const searchFilters = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: parseFiltersFromHTML
+    });
     
     // İlk sayfayı analiz et
     let pageContent = await getPageContent(tab);
@@ -1196,12 +1292,12 @@ async function startAnalysis(tabId) {
         totalProcessed,
         currentPage,
         totalPages,
-        searchFilters // Filtre bilgilerini ekle
+        searchFilters: searchFilters[0].result
       }
     });
 
     // HTML raporu göster
-    await showHTMLReport(analyzedCars, searchFilters);
+    await showHTMLReport(analyzedCars, searchFilters[0].result);
     
   } catch (error) {
     console.error('Analiz hatası:', error);
