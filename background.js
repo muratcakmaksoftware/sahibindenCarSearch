@@ -187,7 +187,6 @@ async function processDetailPage(url, title, tabId, carId) {
       target: { tabId },
       func: (id) => {
         // Reklam olmayan gerçek ilan linkini bul
-        //const item = document.querySelector(`tr[data-id="${id}"]:not(.classicNativeAd) a.classifiedTitle`);
         const item = document.querySelector(`tr[data-id="${id}"].searchResultsItem:not(.nativeAd):not(.classicNativeAd) a.classifiedTitle`);
         
         // Eğer element reklam değilse ve bulunduysa tıkla
@@ -345,23 +344,30 @@ async function processDetailPage(url, title, tabId, carId) {
               safety: [],
               exterior: [],
               interior: [],
-              multimedia: [],
-              other: []
+              multimedia: []
             };
 
-            document.querySelectorAll('.classifiedInfoList .feature-details li').forEach(item => {
+            // Tüm donanım özelliklerini bul
+            const features = document.querySelectorAll('.classifiedInfoList .feature-details ul li');
+            
+            features.forEach(item => {
               const text = item.textContent.trim();
               
-              if (text.match(/ABS|ESP|Yastık|Fren|Kontrol|Güvenlik/i)) {
+              // Güvenlik donanımları
+              if (text.match(/ABS|ESP|ASR|EBD|Yastık|Airbag|Fren|Kontrol|Güvenlik|ISOFIX|Immobilizer|Merkezi|Kilit/i)) {
                 equipment.safety.push(text);
-              } else if (text.match(/Far|Jant|Sis|Ayna|Cam|Sunroof/i)) {
+              }
+              // Dış donanım
+              else if (text.match(/Far|LED|Xenon|Sis|Ayna|Cam|Sunroof|Tavan|Jant|Alaşım|Park|Sensör|Kamera|Yağmur|Arka|Silecek/i)) {
                 equipment.exterior.push(text);
-              } else if (text.match(/Klima|Koltuk|Döşeme|Direksiyon|Isıtma/i)) {
+              }
+              // İç donanım
+              else if (text.match(/Klima|Koltuk|Döşeme|Deri|Kumaş|Direksiyon|Isıtma|Soğutma|Hafıza|Ayar|Torpido|Kol|Dayama/i)) {
                 equipment.interior.push(text);
-              } else if (text.match(/USB|Bluetooth|Navigasyon|Ekran|Ses/i)) {
+              }
+              // Multimedya
+              else if (text.match(/USB|AUX|Bluetooth|Navigasyon|Ekran|Ses|Radyo|CD|DVD|MP3|Telefon|Müzik|TV/i)) {
                 equipment.multimedia.push(text);
-              } else {
-                equipment.other.push(text);
               }
             });
 
@@ -369,7 +375,7 @@ async function processDetailPage(url, title, tabId, carId) {
             return equipment;
           } catch (error) {
             console.error('Donanım bilgileri alınamadı:', error);
-            return { safety: [], exterior: [], interior: [], multimedia: [], other: [] };
+            return { safety: [], exterior: [], interior: [], multimedia: [] };
           }
         };
 
@@ -487,6 +493,388 @@ async function processDetailPage(url, title, tabId, carId) {
   }
 }
 
+// Filtre bilgilerini URL'den çıkar
+function parseSearchFilters(url) {
+  try {
+    const urlObj = new URL(url);
+    const params = new URLSearchParams(urlObj.search);
+    const pagePath = urlObj.pathname.split('/');
+    
+    const filters = {
+      brand: null,
+      model: null,
+      minYear: params.get('a5_min') || null,
+      maxYear: params.get('a5_max') || null,
+      minKm: params.get('a4_min') ? parseInt(params.get('a4_min')).toLocaleString() : null,
+      maxKm: params.get('a4_max') ? parseInt(params.get('a4_max')).toLocaleString() : null,
+      minPrice: params.get('price_min') ? parseInt(params.get('price_min')).toLocaleString() + ' TL' : null,
+      maxPrice: params.get('price_max') ? parseInt(params.get('price_max')).toLocaleString() + ' TL' : null,
+      gear: params.get('a6') ? (params.get('a6') === '1' ? 'Manuel' : 'Otomatik') : null,
+      fuel: params.get('a7') ? getFuelType(params.get('a7')) : null,
+      location: params.get('address_city') || null
+    };
+
+    // URL path'inden marka/model bilgisini çıkar
+    if (pagePath.length > 2) {
+      const modelPath = pagePath[pagePath.length - 1];
+      if (modelPath !== 'otomobil') {
+        filters.model = decodeURIComponent(modelPath).replace(/-/g, ' ');
+      }
+      const brandPath = pagePath[pagePath.length - 2];
+      if (brandPath !== 'otomobil') {
+        filters.brand = decodeURIComponent(brandPath).replace(/-/g, ' ');
+      }
+    }
+
+    return filters;
+  } catch (error) {
+    console.error('Filtre çıkarma hatası:', error);
+    return null;
+  }
+}
+
+// Yakıt tipi kodunu açıklamaya çevir
+function getFuelType(code) {
+  const fuelTypes = {
+    '1': 'Benzin',
+    '2': 'Dizel',
+    '3': 'LPG',
+    '4': 'Hibrit',
+    '5': 'Elektrik',
+    '6': 'Benzin & LPG'
+  };
+  return fuelTypes[code] || null;
+}
+
+// Filtre özetini oluştur
+function createFilterSummary(filters) {
+  const summary = [];
+  
+  if (filters.brand) summary.push(`Marka: ${filters.brand}`);
+  if (filters.model) summary.push(`Model: ${filters.model}`);
+  if (filters.minYear && filters.maxYear) summary.push(`Yıl: ${filters.minYear} - ${filters.maxYear}`);
+  else if (filters.minYear) summary.push(`Yıl: ${filters.minYear} ve üstü`);
+  else if (filters.maxYear) summary.push(`Yıl: ${filters.maxYear} ve altı`);
+  
+  if (filters.minKm && filters.maxKm) summary.push(`KM: ${filters.minKm} - ${filters.maxKm}`);
+  else if (filters.minKm) summary.push(`KM: ${filters.minKm} ve üstü`);
+  else if (filters.maxKm) summary.push(`KM: ${filters.maxKm} ve altı`);
+  
+  if (filters.minPrice && filters.maxPrice) summary.push(`Fiyat: ${filters.minPrice} - ${filters.maxPrice}`);
+  else if (filters.minPrice) summary.push(`Fiyat: ${filters.minPrice} ve üstü`);
+  else if (filters.maxPrice) summary.push(`Fiyat: ${filters.maxPrice} ve altı`);
+  
+  if (filters.gear) summary.push(`Vites: ${filters.gear}`);
+  if (filters.fuel) summary.push(`Yakıt: ${filters.fuel}`);
+  if (filters.location) summary.push(`Şehir: ${filters.location}`);
+  
+  return summary;
+}
+
+// HTML raporu oluştur ve göster
+async function showHTMLReport(analyzedCars, searchFilters) {
+  // Araçları puana göre sırala
+  const sortedCars = [...analyzedCars].sort((a, b) => b.scores.overall - a.scores.overall);
+
+  // HTML şablonu oluştur
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Araç Analiz Raporu</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          background-color: #f5f5f5;
+        }
+        .container {
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+        h1 {
+          color: #333;
+          text-align: center;
+          margin-bottom: 10px;
+        }
+        .filter-summary {
+          background-color: white;
+          padding: 15px;
+          border-radius: 5px;
+          margin-bottom: 20px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .filter-summary h2 {
+          margin: 0 0 10px 0;
+          font-size: 1.2em;
+          color: #4CAF50;
+        }
+        .filter-summary ul {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .filter-summary li {
+          background-color: #e8f5e9;
+          padding: 5px 10px;
+          border-radius: 15px;
+          font-size: 0.9em;
+          color: #2e7d32;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          background-color: white;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        th, td {
+          padding: 12px;
+          text-align: left;
+          border-bottom: 1px solid #ddd;
+        }
+        th {
+          background-color: #4CAF50;
+          color: white;
+          position: sticky;
+          top: 0;
+        }
+        tr:nth-child(even) {
+          background-color: #f9f9f9;
+        }
+        tr:hover {
+          background-color: #f5f5f5;
+        }
+        .score {
+          font-weight: bold;
+        }
+        .score-high {
+          color: #4CAF50;
+        }
+        .score-medium {
+          color: #FFA500;
+        }
+        .score-low {
+          color: #f44336;
+        }
+        .damage-info {
+          font-size: 0.9em;
+          color: #666;
+        }
+        .stats {
+          margin: 15px 0;
+          padding: 15px;
+          background-color: white;
+          border-radius: 5px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stats p {
+          margin: 5px 0;
+          color: #666;
+        }
+        .link-icon {
+          color: #4CAF50;
+          text-decoration: none;
+          font-size: 1.2em;
+          padding: 5px;
+          border-radius: 4px;
+          transition: background-color 0.2s;
+        }
+        .link-icon:hover {
+          background-color: #e8f5e9;
+        }
+        .equipment-list {
+          font-size: 0.9em;
+          color: #666;
+          margin: 0;
+          padding: 0;
+          list-style: none;
+        }
+        .equipment-list li {
+          display: inline-block;
+          margin-right: 8px;
+          background-color: #f0f0f0;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 0.8em;
+        }
+        .sort-select {
+          margin: 10px 0;
+          padding: 8px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          background-color: white;
+          font-size: 14px;
+          color: #333;
+        }
+        
+        .rank {
+          font-weight: bold;
+          color: #1976d2;
+          background-color: #e3f2fd;
+          padding: 2px 8px;
+          border-radius: 12px;
+          display: inline-block;
+          min-width: 20px;
+          text-align: center;
+        }
+        
+        .score-detail {
+          font-size: 0.85em;
+          color: #666;
+          margin-top: 3px;
+        }
+      </style>
+      <script>
+        function sortTable(criteria) {
+          const tbody = document.querySelector('tbody');
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+          
+          rows.sort((a, b) => {
+            let aValue, bValue;
+            
+            switch(criteria) {
+              case 'overall':
+                aValue = parseInt(a.querySelector('td[data-overall]').getAttribute('data-overall'));
+                bValue = parseInt(b.querySelector('td[data-overall]').getAttribute('data-overall'));
+                break;
+              case 'value':
+                aValue = parseInt(a.querySelector('td[data-value]').getAttribute('data-value'));
+                bValue = parseInt(b.querySelector('td[data-value]').getAttribute('data-value'));
+                break;
+              case 'condition':
+                aValue = parseInt(a.querySelector('td[data-condition]').getAttribute('data-condition'));
+                bValue = parseInt(b.querySelector('td[data-condition]').getAttribute('data-condition'));
+                break;
+              case 'price':
+                aValue = parseInt(a.querySelector('td[data-price]').getAttribute('data-price'));
+                bValue = parseInt(b.querySelector('td[data-price]').getAttribute('data-price'));
+                break;
+              case 'year':
+                aValue = parseInt(a.querySelector('td[data-year]').getAttribute('data-year'));
+                bValue = parseInt(b.querySelector('td[data-year]').getAttribute('data-year'));
+                break;
+              case 'km':
+                aValue = parseInt(a.querySelector('td[data-km]').getAttribute('data-km'));
+                bValue = parseInt(b.querySelector('td[data-km]').getAttribute('data-km'));
+                break;
+            }
+            
+            return criteria === 'km' || criteria === 'price' ? aValue - bValue : bValue - aValue;
+          });
+          
+          // Sıralamayı uygula ve sıra numaralarını güncelle
+          rows.forEach((row, index) => {
+            row.querySelector('.rank').textContent = (index + 1).toString();
+            tbody.appendChild(row);
+          });
+        }
+      </script>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Araç Analiz Raporu</h1>
+        
+        <div class="filter-summary">
+          <h2>Arama Filtreleri</h2>
+          <ul>
+            ${createFilterSummary(searchFilters).map(filter => `<li>${filter}</li>`).join('')}
+          </ul>
+        </div>
+
+        <div class="stats">
+          <p>Toplam İncelenen İlan: ${analyzedCars.length}</p>
+          <p>Ortalama Genel Puan: ${Math.round(analyzedCars.reduce((acc, car) => acc + car.scores.overall, 0) / analyzedCars.length)}</p>
+        </div>
+
+        <select class="sort-select" onchange="sortTable(this.value)">
+          <option value="overall">Genel Puana Göre Sırala</option>
+          <option value="value">Fiyat/Değer Puanına Göre Sırala</option>
+          <option value="condition">Durum Puanına Göre Sırala</option>
+          <option value="price">Fiyata Göre Sırala (Düşükten Yükseğe)</option>
+          <option value="year">Yıla Göre Sırala (Yeniden Eskiye)</option>
+          <option value="km">Kilometreye Göre Sırala (Düşükten Yükseğe)</option>
+        </select>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Sıra</th>
+              <th>Marka/Model</th>
+              <th>Yıl/KM</th>
+              <th>Fiyat</th>
+              <th>Genel Puan</th>
+              <th>Fiyat/Değer</th>
+              <th>Durum</th>
+              <th>Teknik</th>
+              <th>Donanım</th>
+              <th>Hasar Bilgisi</th>
+              <th>İlan</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sortedCars.map((car, index) => {
+              const getScoreClass = score => {
+                if (score >= 80) return 'score-high';
+                if (score >= 60) return 'score-medium';
+                return 'score-low';
+              };
+              
+              const damageInfo = car.damage ? `
+                ${car.damage.changedParts?.length ? `Değişen: ${car.damage.changedParts.length}` : ''}
+                ${car.damage.paintedParts?.length ? `Boyalı: ${car.damage.paintedParts.length}` : ''}
+                ${car.damage.localPaintedParts?.length ? `Lokal: ${car.damage.localPaintedParts.length}` : ''}
+                ${car.damage.maxTramerAmount ? `Tramer: ${car.damage.maxTramerAmount.toLocaleString()} TL` : ''}
+              `.trim() : 'Bilgi yok';
+
+              const equipmentList = car.equipment ? `
+                <ul class="equipment-list">
+                  ${car.equipment.safety.slice(0, 3).map(item => `<li>${item}</li>`).join('')}
+                  ${car.equipment.exterior.slice(0, 2).map(item => `<li>${item}</li>`).join('')}
+                  ${car.equipment.interior.slice(0, 2).map(item => `<li>${item}</li>`).join('')}
+                  ${car.equipment.multimedia.slice(0, 2).map(item => `<li>${item}</li>`).join('')}
+                </ul>
+              ` : 'Bilgi yok';
+
+              const price = parseInt(car.price?.replace(/[^0-9]/g, '')) || 0;
+              const km = parseInt(car.km?.replace(/[^0-9]/g, '')) || 0;
+              const year = parseInt(car.year) || 0;
+
+              return `
+                <tr>
+                  <td><span class="rank">${index + 1}</span></td>
+                  <td>${car.brand} ${car.series} ${car.model}</td>
+                  <td data-year="${year}" data-km="${km}">${car.year} / ${parseInt(car.km).toLocaleString()} km</td>
+                  <td data-price="${price}">${car.price}</td>
+                  <td data-overall="${car.scores.overall}" class="score ${getScoreClass(car.scores.overall)}">
+                    ${car.scores.overall}
+                    <div class="score-detail">Sıralama: ${index + 1}/${sortedCars.length}</div>
+                  </td>
+                  <td data-value="${car.scores.value}" class="score ${getScoreClass(car.scores.value)}">${car.scores.value}</td>
+                  <td data-condition="${car.scores.condition}" class="score ${getScoreClass(car.scores.condition)}">${car.scores.condition}</td>
+                  <td class="score ${getScoreClass(car.scores.technical)}">${car.scores.technical}</td>
+                  <td>${equipmentList}</td>
+                  <td class="damage-info">${damageInfo}</td>
+                  <td><a href="${car.url}" class="link-icon" target="_blank">🔗</a></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </body>
+    </html>
+  `;
+
+  // Data URL oluştur ve yeni sekmede aç
+  const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+  await chrome.tabs.create({ url: dataUrl });
+}
+
+// Analiz tamamlandığında HTML raporu göster
 async function startAnalysis(tabId) {
   console.log('Analiz başlatılıyor...');
   
@@ -495,11 +883,14 @@ async function startAnalysis(tabId) {
     totalProcessed = 0;
     currentPage = 1;
     
-    // İlk sayfayı analiz et
+    // URL'den filtre bilgilerini al
     const tab = await chrome.tabs.get(tabId);
+    const searchFilters = parseSearchFilters(tab.url);
+    
+    // İlk sayfayı analiz et
     let pageContent = await getPageContent(tab);
     currentPage = pageContent.currentPage;
-    totalPages = pageContent.totalPages; // Toplam mevcut sayfa sayısı
+    totalPages = pageContent.totalPages;
     
     while (currentPage <= totalPages && isAnalysisRunning) {
       // Sayfadaki araçları analiz et
@@ -589,9 +980,13 @@ async function startAnalysis(tabId) {
         analyzedCars,
         totalProcessed,
         currentPage,
-        totalPages
+        totalPages,
+        searchFilters // Filtre bilgilerini ekle
       }
     });
+
+    // HTML raporu göster
+    await showHTMLReport(analyzedCars, searchFilters);
     
   } catch (error) {
     console.error('Analiz hatası:', error);
@@ -715,15 +1110,14 @@ function calculateScores(car) {
   
   const scores = {
     overall: 0,
-    value: 0,      // Fiyat/değer oranı (30%)
+    value: 0,      // Fiyat/değer oranı (35%)
     condition: 0,   // Araç durumu (35%)
     technical: 0,   // Teknik özellikler (20%)
-    equipment: 0,   // Donanım seviyesi (10%)
-    seller: 0       // Satıcı güvenilirliği (5%)
+    equipment: 0    // Donanım seviyesi (10%)
   };
   
   try {
-    // Fiyat/değer puanı (30%)
+    // Fiyat/değer puanı (35%)
     const price = parseFloat(car.price?.replace(/[^0-9]/g, '')) || 0;
     const year = parseInt(car.year) || new Date().getFullYear();
     const km = parseFloat(car.km?.replace(/[^0-9]/g, '')) || 0;
@@ -950,20 +1344,6 @@ function calculateScores(car) {
     scores.equipment += Math.min(10, interiorEquipCount);
     scores.equipment += Math.min(10, multimediaEquipCount);
 
-    // Satıcı puanı (5%)
-    scores.seller = 70;
-    if (car.seller?.type?.includes('Yetkili')) {
-      scores.seller += 15;
-    }
-    if (car.seller?.rating) {
-      const rating = parseFloat(car.seller.rating) || 0;
-      scores.seller += Math.min(15, rating * 3);
-    }
-    if (car.seller?.memberSince) {
-      const memberYears = new Date().getFullYear() - parseInt(car.seller.memberSince);
-      scores.seller += Math.min(10, memberYears * 2);
-    }
-
     // Puanları normalize et (0-100 arası)
     Object.keys(scores).forEach(key => {
       scores[key] = Math.max(0, Math.min(100, Math.round(scores[key])));
@@ -971,17 +1351,16 @@ function calculateScores(car) {
 
     // Genel puan hesapla (ağırlıklı ortalama)
     scores.overall = Math.round(
-      scores.value * 0.30 +      // Fiyat/değer: %30
-      scores.condition * 0.35 +   // Durum: %35 (artırıldı)
+      scores.value * 0.35 +      // Fiyat/değer: %35
+      scores.condition * 0.35 +   // Durum: %35
       scores.technical * 0.20 +   // Teknik: %20
-      scores.equipment * 0.10 +   // Donanım: %10 (azaltıldı)
-      scores.seller * 0.05        // Satıcı: %5 (azaltıldı)
+      scores.equipment * 0.10     // Donanım: %10
     );
 
     //console.log('Hesaplanan puanlar:', scores);
     return scores;
   } catch (error) {
     console.error('Puan hesaplama hatası:', error);
-    return { overall: 0, value: 0, condition: 0, technical: 0, equipment: 0, seller: 0 };
+    return { overall: 0, value: 0, condition: 0, technical: 0, equipment: 0 };
   }
 } 
