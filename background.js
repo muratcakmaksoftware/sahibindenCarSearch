@@ -512,7 +512,7 @@ async function processDetailPage(url, title, tabId, carId) {
 // Filtre bilgilerini HTML'den çıkar
 function parseFiltersFromHTML() {
   const filters = {
-    location: '',
+    location: [],
     price: '',
     year: '',
     gear: '',
@@ -553,7 +553,7 @@ function parseFiltersFromHTML() {
 
       switch (title) {
         case 'Adres':
-          filters.location = values[0] || '';
+          filters.location = values;
           break;
         case 'Fiyat (TL)':
           filters.price = values[0] || '';
@@ -639,7 +639,7 @@ function createFilterSummary(filters) {
   
   if (filters.gear) summary.push(`Vites: ${filters.gear}`);
   if (filters.fuel) summary.push(`Yakıt: ${filters.fuel}`);
-  if (filters.location) summary.push(`Şehir: ${filters.location}`);
+  if (filters.location.length) summary.push(`Şehir: ${filters.location.join(' | ')}`);
   
   return summary;
 }
@@ -648,7 +648,7 @@ function createFilterSummary(filters) {
 async function showHTMLReport(analyzedCars, searchFilters) {
   // Araçları puana göre sırala
   const sortedCars = [...analyzedCars].sort((a, b) => b.scores.overall - a.scores.overall);
-
+  
   // Filtre özeti oluştur
   let filterSummaryHTML = '';
   if (searchFilters) {
@@ -678,7 +678,7 @@ async function showHTMLReport(analyzedCars, searchFilters) {
         </table>
       </div>
     `;
-  }
+        }
 
   const html = `
     <!DOCTYPE html>
@@ -739,13 +739,13 @@ async function showHTMLReport(analyzedCars, searchFilters) {
           padding: 12px;
           text-align: left;
           border-bottom: 1px solid #ddd;
-        }
+      }
         th {
           background-color: #4CAF50;
           color: white;
           position: sticky;
           top: 0;
-        }
+    }
         tr:nth-child(even) {
           background-color: #f9f9f9;
         }
@@ -763,7 +763,7 @@ async function showHTMLReport(analyzedCars, searchFilters) {
         }
         .score-low {
           color: #f44336;
-        }
+  }
         .damage-info {
           font-size: 0.9em;
           color: #666;
@@ -786,7 +786,7 @@ async function showHTMLReport(analyzedCars, searchFilters) {
           padding: 5px;
           border-radius: 4px;
           transition: background-color 0.2s;
-        }
+}
         .link-icon:hover {
           background-color: #e8f5e9;
         }
@@ -1051,10 +1051,10 @@ async function showHTMLReport(analyzedCars, searchFilters) {
               <ul class="equipment-list">
                 \${items.map(item => '<li>' + item + '</li>').join('')}
               </ul>
-            </div>
+      </div>
           \`;
-        }
-        
+  }
+
         function closeModal() {
           const modal = document.getElementById('equipmentModal');
           modal.style.display = 'none';
@@ -1674,4 +1674,4 @@ function calculateScores(car) {
     console.error('Puan hesaplama hatası:', error);
     return { overall: 0, value: 0, condition: 0, technical: 0, equipment: 0 };
   }
-} 
+}
