@@ -347,31 +347,47 @@ async function processDetailPage(url, title, tabId, carId) {
               multimedia: []
             };
 
-            // Tüm donanım özelliklerini bul
-            const features = document.querySelectorAll('.classifiedInfoList .feature-details ul li');
-            
-            features.forEach(item => {
-              const text = item.textContent.trim();
+            // Ana donanım container'ını bul
+            const container = document.querySelector('#classifiedProperties');
+            if (!container) {
+              console.log('Donanım container bulunamadı');
+              return equipment;
+            }
+
+            // Her bir kategoriyi işle
+            const categories = container.querySelectorAll('h3');
+            categories.forEach(category => {
+              const categoryName = category.textContent.trim();
+              const itemList = category.nextElementSibling;
               
-              // Güvenlik donanımları
-              if (text.match(/ABS|ESP|ASR|EBD|Yastık|Airbag|Fren|Kontrol|Güvenlik|ISOFIX|Immobilizer|Merkezi|Kilit/i)) {
-                equipment.safety.push(text);
+              if (!itemList || !itemList.tagName || itemList.tagName.toLowerCase() !== 'ul') {
+                return;
               }
-              // Dış donanım
-              else if (text.match(/Far|LED|Xenon|Sis|Ayna|Cam|Sunroof|Tavan|Jant|Alaşım|Park|Sensör|Kamera|Yağmur|Arka|Silecek/i)) {
-                equipment.exterior.push(text);
-              }
-              // İç donanım
-              else if (text.match(/Klima|Koltuk|Döşeme|Deri|Kumaş|Direksiyon|Isıtma|Soğutma|Hafıza|Ayar|Torpido|Kol|Dayama/i)) {
-                equipment.interior.push(text);
-              }
-              // Multimedya
-              else if (text.match(/USB|AUX|Bluetooth|Navigasyon|Ekran|Ses|Radyo|CD|DVD|MP3|Telefon|Müzik|TV/i)) {
-                equipment.multimedia.push(text);
-              }
+
+              // Sadece seçili (aktif) donanımları al
+              const selectedItems = itemList.querySelectorAll('li.selected');
+              
+              selectedItems.forEach(item => {
+                const text = item.childNodes[0].textContent.trim();
+                
+                switch(categoryName) {
+                  case 'Güvenlik':
+                    equipment.safety.push(text);
+                    break;
+                  case 'Dış Donanım':
+                    equipment.exterior.push(text);
+                    break;
+                  case 'İç Donanım':
+                    equipment.interior.push(text);
+                    break;
+                  case 'Multimedya':
+                    equipment.multimedia.push(text);
+                    break;
+                }
+              });
             });
 
-            console.log('Donanım bilgileri:', equipment);
+            console.log('Toplanan donanım bilgileri:', equipment);
             return equipment;
           } catch (error) {
             console.error('Donanım bilgileri alınamadı:', error);
@@ -582,6 +598,7 @@ async function showHTMLReport(analyzedCars, searchFilters) {
     <html>
     <head>
       <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Araç Analiz Raporu</title>
       <style>
         body {
@@ -722,55 +739,236 @@ async function showHTMLReport(analyzedCars, searchFilters) {
           text-align: center;
         }
         
-        .score-detail {
+        .tooltip {
+          position: relative;
+          cursor: pointer;
+        }
+        
+        .tooltip .tooltip-content {
+          visibility: hidden;
+          background-color: #fff;
+          color: #333;
+          text-align: left;
+          border-radius: 6px;
+          padding: 10px;
+          position: absolute;
+          z-index: 1;
+          bottom: 125%;
+          left: 50%;
+          transform: translateX(-50%);
+          min-width: 250px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+          opacity: 0;
+          transition: opacity 0.3s;
+        }
+        
+        .tooltip:hover .tooltip-content {
+          visibility: visible;
+          opacity: 1;
+        }
+        
+        .tooltip-content h4 {
+          margin: 0 0 5px 0;
+          color: #4CAF50;
+          font-size: 0.9em;
+        }
+        
+        .tooltip-content ul {
+          margin: 0 0 8px 0;
+          padding: 0;
+          list-style: none;
           font-size: 0.85em;
+        }
+        
+        .tooltip-content li {
+          margin: 2px 0;
+          padding: 2px 0;
+          border-bottom: 1px solid #eee;
+        }
+        
+        .tooltip-content li:last-child {
+          border-bottom: none;
+        }
+        
+        .equipment-count {
+          font-size: 0.8em;
           color: #666;
-          margin-top: 3px;
+          margin-left: 5px;
+        }
+        
+        .modal {
+          display: none;
+          position: fixed;
+          z-index: 1000;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0,0,0,0.5);
+          overflow-y: auto;
+        }
+        
+        .modal-content {
+          background-color: #fff;
+          margin: 15% auto;
+          padding: 20px;
+          border-radius: 8px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          position: relative;
+          width: 90%;
+          max-width: 600px;
+          animation: modalSlide 0.3s ease-out;
+        }
+        
+        @keyframes modalSlide {
+          from {
+            transform: translateY(-100px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        .modal-close {
+          position: absolute;
+          right: 15px;
+          top: 10px;
+          font-size: 24px;
+          cursor: pointer;
+          color: #666;
+          line-height: 1;
+        }
+        
+        .modal-close:hover {
+          color: #333;
+        }
+        
+        .modal-title {
+          margin: 0 0 20px 0;
+          color: #4CAF50;
+          font-size: 1.2em;
+          padding-right: 30px;
+        }
+        
+        .equipment-section {
+          margin-bottom: 20px;
+        }
+        
+        .equipment-section h4 {
+          color: #1976d2;
+          margin: 0 0 10px 0;
+          font-size: 1em;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .equipment-section h4 span {
+          background: #e3f2fd;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 0.85em;
+        }
+        
+        .equipment-list {
+          margin: 0;
+          padding: 0;
+          list-style: none;
+        }
+        
+        .equipment-list li {
+          padding: 8px;
+          border-bottom: 1px solid #eee;
+          font-size: 0.9em;
+        }
+        
+        .equipment-list li:last-child {
+          border-bottom: none;
+        }
+        
+        .equipment-trigger {
+          cursor: pointer;
+          text-decoration: underline;
+          color: #1976d2;
+        }
+        
+        .equipment-count {
+          font-size: 0.8em;
+          color: #666;
+          margin-left: 5px;
+        }
+        
+        @media (max-width: 768px) {
+          .modal-content {
+            margin: 10% auto;
+            width: 95%;
+            padding: 15px;
+          }
+          
+          .equipment-section h4 {
+            font-size: 0.9em;
+          }
+          
+          .equipment-list li {
+            font-size: 0.85em;
+            padding: 6px;
+          }
         }
       </style>
       <script>
-        function sortTable(criteria) {
-          const tbody = document.querySelector('tbody');
-          const rows = Array.from(tbody.querySelectorAll('tr'));
+        function showEquipmentModal(carId) {
+          const modal = document.getElementById('equipmentModal');
+          const content = document.getElementById('modalContent');
+          const data = JSON.parse(document.getElementById('equipmentData_' + carId).value);
           
-          rows.sort((a, b) => {
-            let aValue, bValue;
-            
-            switch(criteria) {
-              case 'overall':
-                aValue = parseInt(a.querySelector('td[data-overall]').getAttribute('data-overall'));
-                bValue = parseInt(b.querySelector('td[data-overall]').getAttribute('data-overall'));
-                break;
-              case 'value':
-                aValue = parseInt(a.querySelector('td[data-value]').getAttribute('data-value'));
-                bValue = parseInt(b.querySelector('td[data-value]').getAttribute('data-value'));
-                break;
-              case 'condition':
-                aValue = parseInt(a.querySelector('td[data-condition]').getAttribute('data-condition'));
-                bValue = parseInt(b.querySelector('td[data-condition]').getAttribute('data-condition'));
-                break;
-              case 'price':
-                aValue = parseInt(a.querySelector('td[data-price]').getAttribute('data-price'));
-                bValue = parseInt(b.querySelector('td[data-price]').getAttribute('data-price'));
-                break;
-              case 'year':
-                aValue = parseInt(a.querySelector('td[data-year]').getAttribute('data-year'));
-                bValue = parseInt(b.querySelector('td[data-year]').getAttribute('data-year'));
-                break;
-              case 'km':
-                aValue = parseInt(a.querySelector('td[data-km]').getAttribute('data-km'));
-                bValue = parseInt(b.querySelector('td[data-km]').getAttribute('data-km'));
-                break;
-            }
-            
-            return criteria === 'km' || criteria === 'price' ? aValue - bValue : bValue - aValue;
-          });
+          let html = '<h3 class="modal-title">' + data.title + ' - Donanım Listesi</h3>';
           
-          // Sıralamayı uygula ve sıra numaralarını güncelle
-          rows.forEach((row, index) => {
-            row.querySelector('.rank').textContent = (index + 1).toString();
-            tbody.appendChild(row);
-          });
+          if (data.safety.length > 0) {
+            html += createSection('Güvenlik', data.safety);
+          }
+          if (data.interior.length > 0) {
+            html += createSection('İç Donanım', data.interior);
+          }
+          if (data.exterior.length > 0) {
+            html += createSection('Dış Donanım', data.exterior);
+          }
+          if (data.multimedia.length > 0) {
+            html += createSection('Multimedya', data.multimedia);
+          }
+          
+          content.innerHTML = html;
+          modal.style.display = 'block';
+          
+          // Scroll'u kapat
+          document.body.style.overflow = 'hidden';
+        }
+        
+        function createSection(title, items) {
+          return \`
+            <div class="equipment-section">
+              <h4>\${title} <span>\${items.length}</span></h4>
+              <ul class="equipment-list">
+                \${items.map(item => '<li>' + item + '</li>').join('')}
+              </ul>
+            </div>
+          \`;
+        }
+        
+        function closeModal() {
+          const modal = document.getElementById('equipmentModal');
+          modal.style.display = 'none';
+          // Scroll'u geri aç
+          document.body.style.overflow = 'auto';
+        }
+        
+        // Modal dışına tıklanınca kapat
+        window.onclick = function(event) {
+          const modal = document.getElementById('equipmentModal');
+          if (event.target == modal) {
+            closeModal();
+          }
         }
       </script>
     </head>
@@ -830,14 +1028,20 @@ async function showHTMLReport(analyzedCars, searchFilters) {
                 ${car.damage.maxTramerAmount ? `Tramer: ${car.damage.maxTramerAmount.toLocaleString()} TL` : ''}
               `.trim() : 'Bilgi yok';
 
-              const equipmentList = car.equipment ? `
-                <ul class="equipment-list">
-                  ${car.equipment.safety.slice(0, 3).map(item => `<li>${item}</li>`).join('')}
-                  ${car.equipment.exterior.slice(0, 2).map(item => `<li>${item}</li>`).join('')}
-                  ${car.equipment.interior.slice(0, 2).map(item => `<li>${item}</li>`).join('')}
-                  ${car.equipment.multimedia.slice(0, 2).map(item => `<li>${item}</li>`).join('')}
-                </ul>
-              ` : 'Bilgi yok';
+              const totalEquipment = car.equipment ? 
+                car.equipment.safety.length + 
+                car.equipment.interior.length + 
+                car.equipment.exterior.length + 
+                car.equipment.multimedia.length : 0;
+
+              // Donanım verilerini hidden input'a sakla
+              const equipmentData = car.equipment ? {
+                title: `${car.brand} ${car.series} ${car.model}`,
+                safety: car.equipment.safety,
+                interior: car.equipment.interior,
+                exterior: car.equipment.exterior,
+                multimedia: car.equipment.multimedia
+              } : null;
 
               const price = parseInt(car.price?.replace(/[^0-9]/g, '')) || 0;
               const km = parseInt(car.km?.replace(/[^0-9]/g, '')) || 0;
@@ -849,14 +1053,17 @@ async function showHTMLReport(analyzedCars, searchFilters) {
                   <td>${car.brand} ${car.series} ${car.model}</td>
                   <td data-year="${year}" data-km="${km}">${car.year} / ${parseInt(car.km).toLocaleString()} km</td>
                   <td data-price="${price}">${car.price}</td>
-                  <td data-overall="${car.scores.overall}" class="score ${getScoreClass(car.scores.overall)}">
-                    ${car.scores.overall}
-                    <div class="score-detail">Sıralama: ${index + 1}/${sortedCars.length}</div>
-                  </td>
+                  <td data-overall="${car.scores.overall}" class="score ${getScoreClass(car.scores.overall)}">${car.scores.overall}</td>
                   <td data-value="${car.scores.value}" class="score ${getScoreClass(car.scores.value)}">${car.scores.value}</td>
                   <td data-condition="${car.scores.condition}" class="score ${getScoreClass(car.scores.condition)}">${car.scores.condition}</td>
                   <td class="score ${getScoreClass(car.scores.technical)}">${car.scores.technical}</td>
-                  <td>${equipmentList}</td>
+                  <td class="score ${getScoreClass(car.scores.equipment)}">
+                    ${equipmentData ? `
+                      <input type="hidden" id="equipmentData_${index}" value='${JSON.stringify(equipmentData)}'>
+                      <span class="equipment-trigger" onclick="showEquipmentModal(${index})">${car.scores.equipment}</span>
+                      <span class="equipment-count">(${totalEquipment})</span>
+                    ` : car.scores.equipment}
+                  </td>
                   <td class="damage-info">${damageInfo}</td>
                   <td><a href="${car.url}" class="link-icon" target="_blank">🔗</a></td>
                 </tr>
@@ -864,6 +1071,14 @@ async function showHTMLReport(analyzedCars, searchFilters) {
             }).join('')}
           </tbody>
         </table>
+      </div>
+
+      <!-- Modal -->
+      <div id="equipmentModal" class="modal">
+        <div class="modal-content">
+          <span class="modal-close" onclick="closeModal()">&times;</span>
+          <div id="modalContent"></div>
+        </div>
       </div>
     </body>
     </html>
