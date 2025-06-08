@@ -207,7 +207,7 @@ async function processDetailPage(url, title, tabId, carId) {
     }
     
     // Sayfa yüklenme beklemesi
-    await sleep(1500, 2000);
+    await sleep(2000, 2800);
     
     // Detay sayfasında scroll
     //await simulateDetailPageScrolling(tabId);
@@ -484,7 +484,7 @@ async function processDetailPage(url, title, tabId, carId) {
     });
     
     // Sayfa yüklenme beklemesi
-    await sleep(1500, 2000);
+    await sleep(2000, 2200);
     
     if (!details || !details[0] || !details[0].result) {
       console.error('Detay bilgileri alınamadı!');
@@ -504,7 +504,7 @@ async function processDetailPage(url, title, tabId, carId) {
       }
     });
     
-    await sleep(1500, 2000);
+    await sleep(2000, 2200);
     return null;
   }
 }
