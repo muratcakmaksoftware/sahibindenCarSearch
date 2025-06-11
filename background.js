@@ -69,6 +69,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ status: 'stopped' });
     return true;
   }
+
+  if (message.action === 'showReport') {
+    showHTMLReport(message.data.analyzedCars);
+    sendResponse({ status: 'showing_report' });
+    return true;
+  }
 });
 
 // Ana sayfada scroll simülasyonu
@@ -644,8 +650,9 @@ function createFilterSummary(filters) {
   return summary;
 }
 
-// HTML raporu oluştur ve göster
-async function showHTMLReport(analyzedCars, searchFilters) {
+// HTML raporu oluştur ve indir
+async function showHTMLReport(analyzedData) {
+  const { analyzedCars, searchFilters } = analyzedData;
   // Araçları puana göre sırala
   const sortedCars = [...analyzedCars].sort((a, b) => b.scores.overall - a.scores.overall);
   
@@ -659,12 +666,12 @@ async function showHTMLReport(analyzedCars, searchFilters) {
     if (searchFilters.km) filterRows.push(`<tr><td>KM:</td><td>${searchFilters.km}</td></tr>`);
     if (searchFilters.gear) filterRows.push(`<tr><td>Vites:</td><td>${searchFilters.gear}</td></tr>`);
     if (searchFilters.fuelType) filterRows.push(`<tr><td>Yakıt:</td><td>${searchFilters.fuelType}</td></tr>`);
-    if (searchFilters.bodyType.length) filterRows.push(`<tr><td>Kasa:</td><td>${searchFilters.bodyType.join(', ')}</td></tr>`);
-    if (searchFilters.color.length) filterRows.push(`<tr><td>Renk:</td><td>${searchFilters.color.join(', ')}</td></tr>`);
-    if (searchFilters.enginePower.length) filterRows.push(`<tr><td>Motor Gücü:</td><td>${searchFilters.enginePower.join(', ')}</td></tr>`);
-    if (searchFilters.engineSize.length) filterRows.push(`<tr><td>Motor Hacmi:</td><td>${searchFilters.engineSize.join(', ')}</td></tr>`);
-    if (searchFilters.transmission.length) filterRows.push(`<tr><td>Çekiş:</td><td>${searchFilters.transmission.join(', ')}</td></tr>`);
-    if (searchFilters.licensePlate.length) filterRows.push(`<tr><td>Plaka / Uyruk:</td><td>${searchFilters.licensePlate.join(', ')}</td></tr>`);
+    if (searchFilters.bodyType?.length) filterRows.push(`<tr><td>Kasa:</td><td>${searchFilters.bodyType.join(', ')}</td></tr>`);
+    if (searchFilters.color?.length) filterRows.push(`<tr><td>Renk:</td><td>${searchFilters.color.join(', ')}</td></tr>`);
+    if (searchFilters.enginePower?.length) filterRows.push(`<tr><td>Motor Gücü:</td><td>${searchFilters.enginePower.join(', ')}</td></tr>`);
+    if (searchFilters.engineSize?.length) filterRows.push(`<tr><td>Motor Hacmi:</td><td>${searchFilters.engineSize.join(', ')}</td></tr>`);
+    if (searchFilters.transmission?.length) filterRows.push(`<tr><td>Çekiş:</td><td>${searchFilters.transmission.join(', ')}</td></tr>`);
+    if (searchFilters.licensePlate?.length) filterRows.push(`<tr><td>Plaka / Uyruk:</td><td>${searchFilters.licensePlate.join(', ')}</td></tr>`);
     if (searchFilters.heavyDamage) filterRows.push(`<tr><td>Ağır Hasar:</td><td>${searchFilters.heavyDamage}</td></tr>`);
     if (searchFilters.fromWho) filterRows.push(`<tr><td>Kimden:</td><td>${searchFilters.fromWho}</td></tr>`);
     if (searchFilters.exchangeable) filterRows.push(`<tr><td>Takaslı:</td><td>${searchFilters.exchangeable}</td></tr>`);
@@ -678,7 +685,7 @@ async function showHTMLReport(analyzedCars, searchFilters) {
         </table>
       </div>
     `;
-        }
+  }
 
   const html = `
     <!DOCTYPE html>
@@ -1147,6 +1154,20 @@ async function showHTMLReport(analyzedCars, searchFilters) {
             closeModal();
           }
         }
+
+        // JSON verilerini indirme fonksiyonu
+        function downloadJSON() {
+          const data = ${JSON.stringify(analyzedData)};
+          const dataStr = JSON.stringify(data, null, 2);
+          const dataUrl = 'data:text/json;charset=utf-8,' + encodeURIComponent(dataStr);
+          
+          const downloadAnchorNode = document.createElement('a');
+          downloadAnchorNode.setAttribute("href", dataUrl);
+          downloadAnchorNode.setAttribute("download", "arac-analiz-verileri.json");
+          document.body.appendChild(downloadAnchorNode);
+          downloadAnchorNode.click();
+          downloadAnchorNode.remove();
+        }
       </script>
     </head>
     <body>
@@ -1157,6 +1178,9 @@ async function showHTMLReport(analyzedCars, searchFilters) {
         <div class="stats">
           <p>Toplam İncelenen İlan: ${analyzedCars.length}</p>
           <p>Ortalama Genel Puan: ${Math.round(analyzedCars.reduce((acc, car) => acc + car.scores.overall, 0) / analyzedCars.length)}</p>
+          <button onclick="downloadJSON()" style="margin-top: 10px; padding: 8px 15px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            📥 JSON Verileri İndir
+          </button>
         </div>
 
         <select class="sort-select" onchange="sortTable(this.value)">
@@ -1291,9 +1315,18 @@ async function showHTMLReport(analyzedCars, searchFilters) {
     </html>
   `;
 
-  // Data URL oluştur ve yeni sekmede aç
+  // Rapor dosyasını oluştur ve indir
+  const fileName = `arac-analiz-raporu-${new Date().toISOString().slice(0, 10)}.html`;
+  
+  // Data URL oluştur
   const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
-  await chrome.tabs.create({ url: dataUrl });
+  
+  // Chrome API'sini kullanarak dosyayı indir
+  chrome.downloads.download({
+    url: dataUrl,
+    filename: fileName,
+    saveAs: true
+  });
 }
 
 // Analiz tamamlandığında HTML raporu göster
@@ -1399,19 +1432,26 @@ async function startAnalysis(tabId) {
     
     // Analiz tamamlandı
     isAnalysisRunning = false;
-    chrome.runtime.sendMessage({
-      action: 'analysisComplete',
-      data: {
-        analyzedCars,
+    
+    // Tüm veriyi tek bir objede topla
+    const analyzedData = {
+      analyzedCars,
+      searchFilters: searchFilters[0].result,
+      analysisDate: new Date().toISOString(),
+      stats: {
         totalProcessed,
         currentPage,
-        totalPages,
-        searchFilters: searchFilters[0].result
+        totalPages
       }
+    };
+
+    chrome.runtime.sendMessage({
+      action: 'analysisComplete',
+      data: analyzedData
     });
 
     // HTML raporu göster
-    await showHTMLReport(analyzedCars, searchFilters[0].result);
+    await showHTMLReport(analyzedData);
     
   } catch (error) {
     console.error('Analiz hatası:', error);

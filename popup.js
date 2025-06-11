@@ -20,6 +20,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     const results = document.getElementById('results');
     const startButton = document.getElementById('startAnalysis');
     const pageLimitInput = document.getElementById('pageLimit');
+    const jsonFileInput = document.getElementById('jsonFileInput');
+    const viewReportButton = document.getElementById('viewReport');
+    
+    // JSON dosyası seçildiğinde
+    let analyzedData = null;
+    jsonFileInput.addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        try {
+          const fileContent = await file.text();
+          analyzedData = JSON.parse(fileContent);
+          viewReportButton.disabled = false;
+        } catch (error) {
+          console.error('JSON dosyası okuma hatası:', error);
+          alert('JSON dosyası okunamadı veya geçersiz format!');
+          viewReportButton.disabled = true;
+          analyzedData = null;
+        }
+      } else {
+        viewReportButton.disabled = true;
+        analyzedData = null;
+      }
+    });
+
+    // Raporu Gör butonuna tıklandığında
+    viewReportButton.addEventListener('click', async () => {
+      if (analyzedData) {
+        await chrome.runtime.sendMessage({ 
+          action: 'showReport', 
+          data: analyzedData
+        });
+      }
+    });
     
     // İlerleme durumunu kontrol et
     const checkProgress = async () => {
@@ -102,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         startButton.textContent = 'Analizi Başlat';
         startButton.classList.remove('running');
         
-        console.log('Analiz tamamlandı, sonuçlar:', message.data.analyzedCars);
+        console.log('Analiz tamamlandı, sonuçlar:', message.data);
         displayResults(message.data.analyzedCars);
         
         // Interval'i temizle

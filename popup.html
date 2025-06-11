@@ -15,6 +15,7 @@
       border: none;
       border-radius: 4px;
       cursor: pointer;
+      margin-right: 10px;
     }
     button:hover {
       background: #45a049;
@@ -78,6 +79,22 @@
       display: inline-block;
       margin-left: 5px;
     }
+    .file-section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 8px;
+    }
+    .file-section h3 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+    #jsonFileInput {
+      margin-bottom: 10px;
+    }
+    .button-group {
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -89,6 +106,14 @@
   </div>
 
   <button id="startAnalysis">Analizi Başlat</button>
+
+  <div class="file-section">
+    <h3>JSON Dosyasından Rapor Oluştur</h3>
+    <input type="file" id="jsonFileInput" accept=".json">
+    <div class="button-group">
+      <button id="viewReport" disabled>Raporu Gör</button>
+    </div>
+  </div>
 
   <div id="progress" style="display: none; margin-top: 20px;">
     <p>
