@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const pageLimitInput = document.getElementById('pageLimit');
     const jsonFileInput = document.getElementById('jsonFileInput');
     const viewReportButton = document.getElementById('viewReport');
+    const downloadSection = document.getElementById('downloadSection');
+    const downloadReportButton = document.getElementById('downloadReport');
     
     // JSON dosyası seçildiğinde
     let analyzedData = null;
@@ -51,6 +53,40 @@ document.addEventListener('DOMContentLoaded', async () => {
           action: 'showReport', 
           data: analyzedData
         });
+      }
+    });
+    
+    // Rapor indirme butonu
+    downloadReportButton.addEventListener('click', async () => {
+      try {
+        const response = await chrome.runtime.sendMessage({ action: 'getProgress' });
+        console.log('Progress response:', response);
+        
+        if (response.analyzedCars && response.analyzedCars.length > 0) {
+          // Rapor verisini oluştur
+          const reportData = {
+            analyzedCars: response.analyzedCars,
+            searchFilters: response.searchFilters || {},
+            analysisDate: new Date().toISOString(),
+            stats: {
+              totalProcessed: response.totalProcessed,
+              currentPage: response.currentPage,
+              totalPages: response.totalPages
+            }
+          };
+
+          console.log('Sending report data:', reportData);
+          
+          // Raporu indir
+          await chrome.runtime.sendMessage({ 
+            action: 'showReport', 
+            data: reportData
+          });
+        } else {
+          console.error('Analiz edilmiş araç verisi bulunamadı');
+        }
+      } catch (error) {
+        console.error('Rapor indirme hatası:', error);
       }
     });
     
@@ -134,6 +170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         progress.style.display = 'none';
         startButton.textContent = 'Analizi Başlat';
         startButton.classList.remove('running');
+        downloadSection.style.display = 'block';
         
         console.log('Analiz tamamlandı, sonuçlar:', message.data);
         displayResults(message.data.analyzedCars);

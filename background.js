@@ -71,7 +71,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'showReport') {
-    showHTMLReport(message.data.analyzedCars);
+    showHTMLReport(message.data);
     sendResponse({ status: 'showing_report' });
     return true;
   }
@@ -652,7 +652,16 @@ function createFilterSummary(filters) {
 
 // HTML raporu oluştur ve indir
 async function showHTMLReport(analyzedData) {
+  console.log('Rapor verisi:', analyzedData);
+  
+  // Veri yapısını kontrol et
+  if (!analyzedData || !analyzedData.analyzedCars || !Array.isArray(analyzedData.analyzedCars)) {
+    console.error('Geçersiz veri yapısı:', analyzedData);
+    return;
+  }
+
   const { analyzedCars, searchFilters } = analyzedData;
+  
   // Araçları puana göre sırala
   const sortedCars = [...analyzedCars].sort((a, b) => b.scores.overall - a.scores.overall);
   
@@ -752,12 +761,17 @@ async function showHTMLReport(analyzedData) {
           color: white;
           position: sticky;
           top: 0;
-    }
+          z-index: 10;
+        }
         tr:nth-child(even) {
           background-color: #f9f9f9;
         }
         tr:hover {
           background-color: #f5f5f5;
+        }
+        tr.selected {
+          background-color:rgb(243, 194, 114) !important;
+          transition: background-color 0.3s ease;
         }
         .score {
           font-weight: bold;
@@ -857,12 +871,18 @@ async function showHTMLReport(analyzedData) {
         .rank {
           font-weight: bold;
           color: #1976d2;
-          background-color: #e3f2fd;
+          background-color: #ffebee;
           padding: 2px 8px;
           border-radius: 12px;
           display: inline-block;
           min-width: 20px;
           text-align: center;
+          cursor: pointer;
+          transition: background-color 0.3s ease;
+        }
+        
+        .rank:hover {
+          background-color: #ffcdd2;
         }
         
         .tooltip {
@@ -1042,6 +1062,25 @@ async function showHTMLReport(analyzedData) {
             font-size: 0.85em;
             padding: 6px;
           }
+
+          /* Mobil için tablo düzenlemeleri */
+          table {
+            display: block;
+            overflow-x: auto;
+            white-space: nowrap;
+          }
+          
+          th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #4CAF50;
+          }
+          
+          td, th {
+            padding: 8px;
+            font-size: 0.9em;
+          }
         }
         .filter-table {
           width: 100%;
@@ -1060,6 +1099,27 @@ async function showHTMLReport(analyzedData) {
         // Sayfa yüklendiğinde varsayılan sıralama
         window.onload = function() {
           sortTable('overall_desc');
+          
+          // Tablo satırlarına tıklama olayı ekle
+          const table = document.getElementById('carAnalysisTable');
+          if (table) {
+            const rows = table.getElementsByTagName('tr');
+            for (let i = 1; i < rows.length; i++) { // 0. satır başlık olduğu için 1'den başlıyoruz
+              rows[i].addEventListener('click', function(e) {
+                // Link tıklamasını engelleme
+                if (e.target.tagName === 'A') return;
+                
+                // Sıra numarasına tıklandıysa satırı sil
+                if (e.target.classList.contains('rank')) {
+                  this.remove();
+                  return;
+                }
+                
+                // Satırın seçili durumunu değiştir
+                this.classList.toggle('selected');
+              });
+            }
+          }
         };
 
         // Sıralama fonksiyonu
@@ -1296,7 +1356,7 @@ async function showHTMLReport(analyzedData) {
                     ` : car.scores.equipment}
                   </td>
                   <td class="damage-info">${damageInfo}</td>
-                  <td><a href="${car.url}" class="link-icon" target="_blank">🔗</a></td>
+                  <td><a href="${car.url}" class="link-icon" target="_blank" onclick="event.stopPropagation()">🔍</a></td>
                 </tr>
               `;
             }).join('')}
@@ -1450,8 +1510,8 @@ async function startAnalysis(tabId) {
       data: analyzedData
     });
 
-    // HTML raporu göster
-    await showHTMLReport(analyzedData);
+    // HTML raporu gösterme kısmını kaldırıyoruz
+    // await showHTMLReport(analyzedData);
     
   } catch (error) {
     console.error('Analiz hatası:', error);
