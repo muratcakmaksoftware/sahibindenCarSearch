@@ -168,6 +168,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Analiz verilerini sakla
         window.analysisData = message.data;
         
+        // Bildirim sesi çal
+        const audio = new Audio(chrome.runtime.getURL('notification.wav'));
+        audio.play().catch(error => console.log('Ses çalma hatası:', error));
+        
         console.log('Analiz tamamlandı, sonuçlar:', message.data);
       }
       
