@@ -56,34 +56,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
     
-    // Rapor indirme butonu
+    // İndirme butonu tıklama olayı
     downloadReportButton.addEventListener('click', async () => {
       try {
-        const response = await chrome.runtime.sendMessage({ action: 'getProgress' });
-        console.log('Progress response:', response);
-        
-        if (response.analyzedCars && response.analyzedCars.length > 0) {
+        if (window.analysisData) {
           // Rapor verisini oluştur
           const reportData = {
-            analyzedCars: response.analyzedCars,
-            searchFilters: response.searchFilters || {},
-            analysisDate: new Date().toISOString(),
-            stats: {
-              totalProcessed: response.totalProcessed,
-              currentPage: response.currentPage,
-              totalPages: response.totalPages
-            }
+            analyzedCars: window.analysisData.analyzedCars,
+            searchFilters: window.analysisData.searchFilters,
+            analysisDate: new Date().toLocaleString('tr-TR'),
+            stats: window.analysisData.stats
           };
 
           console.log('Sending report data:', reportData);
           
           // Raporu indir
           await chrome.runtime.sendMessage({ 
-            action: 'showReport', 
+            action: 'showReport',
             data: reportData
           });
         } else {
-          console.error('Analiz edilmiş araç verisi bulunamadı');
+          console.error('Analiz verisi bulunamadı');
         }
       } catch (error) {
         console.error('Rapor indirme hatası:', error);
@@ -172,14 +165,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         startButton.classList.remove('running');
         downloadSection.style.display = 'block';
         
-        console.log('Analiz tamamlandı, sonuçlar:', message.data);
-        displayResults(message.data.analyzedCars);
+        // Analiz verilerini sakla
+        window.analysisData = message.data;
         
-        // Interval'i temizle
-        if (window.progressInterval) {
-          clearInterval(window.progressInterval);
-          window.progressInterval = null;
-        }
+        console.log('Analiz tamamlandı, sonuçlar:', message.data);
       }
       
       if (message.action === 'error') {
